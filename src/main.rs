@@ -1,4 +1,5 @@
 use leptos::{*, html::Input, leptos_dom::logging::console_log};
+use uuid::Uuid;
 use web_sys::SubmitEvent;
 
 
@@ -27,6 +28,12 @@ struct Ingredient {
 // }
 
 
+#[derive(Debug, Clone)]
+struct RecipeItem {
+    id: Uuid,
+    text: String,
+}
+
 
 fn main() {
     mount_to_body(|| view! { <App/> })
@@ -50,8 +57,9 @@ fn App() -> impl IntoView {
                     <Pantry/>
                 </div>
 
-                <div class="flex-grow" >
-                    <Pantry/>
+                <div class="w-full md:w-3/5" >
+                    // <RecipeList recipes=recipes/>
+                    <RecipeList />
                 </div>
             </div>
         </>
@@ -92,8 +100,6 @@ fn Pantry() -> impl IntoView {
     let (ingredients, set_ingredients) = create_signal(vec![ Ingredient { id: 0, name: "Potatoes".to_owned(), quantity: None, certainty: None } ]);
     let (last_ingredient_id, set_last_ingredient_id) = create_signal(0);
 
-    let i = ingredients;
-
 
     let on_ingredient_add = move |i: Ingredient| {
         set_last_ingredient_id.update(|n| *n += 1);
@@ -103,7 +109,7 @@ fn Pantry() -> impl IntoView {
     view! {
         <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
             <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
-            <div class="flex flex-col gap-1">
+            <div class="flex flex-col gap-1" >
                 <div class="flex flex-col gap-1" >
                     <IngredientList ingredients=ingredients />
                 </div>
@@ -120,7 +126,7 @@ fn IngredientItem(
     ingredient: Ingredient
 ) -> impl IntoView {
     view! {
-        <li class="py-3 sm:py-4" >
+        <li class="py-3 sm:py-4 relative group" >
             <div class="flex items-center space-x-3 rtl:space-x-reverse" >
                 <div class="flex-shrink-0" >
                     <img class="w-8 h-8 rounded-full" src="/images/potato.png" alt="Image of a potato"/>
@@ -137,6 +143,10 @@ fn IngredientItem(
                     <span class="w-2 h-2 me-1 bg-green-500 rounded-full"></span>
                         {ingredient.certainty.unwrap_or("Have".to_owned())}
                 </span>
+            </div>
+
+            <div class="absolute top-[calc(50%-13px)] -right-2.5 hidden group-hover:block" >
+                <DeleteButton />
             </div>
         </li>
     }
@@ -205,6 +215,7 @@ fn Navbar() -> impl IntoView {
                     </span>
                 </a>
                 <div class="flex items-center md:order-2 space-x-3 md:space-x-0 rtl:space-x-reverse">
+                    // TODO(filip): make dropwodn menu work
                     <button
                         type="button"
                         class="flex text-sm bg-gray-800 rounded-full md:me-0 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
@@ -214,7 +225,15 @@ fn Navbar() -> impl IntoView {
                         data-dropdown-placement="bottom"
                     >
                         <span class="sr-only">"Open user menu"</span>
-                        <img class="w-8 h-8 rounded-full" src="" alt="user photo"/>
+                        // <img class="w-8 h-8 rounded-full" src="" alt="user photo"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-8 h-8 rounded-full">
+                          <circle cx="100" cy="70" r="50" fill="none" stroke="#f8f8f8" stroke-width="2" />
+                          <path d="M50,70 L100,20 L150,70 Z" fill="#f8f8f8" stroke="#f8f8f8" stroke-width="2" />
+                          <circle cx="80" cy="60" r="5" fill="black" />
+                          <circle cx="120" cy="60" r="5" fill="black" />
+                          <path d="M80,80 Q100,90 120,80" fill="#f8f8f8" stroke="#f8f8f8" />
+                          <rect x="95" y="120" width="10" height="20" fill="#f8f8f8" stroke="#f8f8f8" />
+                        </svg>
                     </button>
                     // Dropdown menu
                     <div
@@ -326,7 +345,31 @@ fn AddButton(
 
             <span class="sr-only">"Add ingredient button"</span>
         </button>
+    }
+}
 
+#[component]
+fn DeleteButton(
+    #[prop(default = 5)]
+    w: u16,
+    #[prop(default = 5)]
+    h: u16,
+    #[prop(default = "button".to_owned())]
+    btn_type: String
+) -> impl IntoView {
+
+    let size_class = "w-".to_owned()+&w.to_string()+" h-"+&h.to_string();
+
+    view! {
+        <button type={btn_type} class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm p-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900" >
+            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+              // <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+              // <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+<path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5M8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5m3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0"/>
+            </svg>
+
+            <span class="sr-only">"Delete ingredient button"</span> // TODO(filip): change aria text
+        </button>
     }
 }
 
@@ -346,5 +389,45 @@ fn CookieLogo() -> impl IntoView {
             <circle cx="110" cy="120" r="18" fill="#3e2723" />
             <circle cx="140" cy="150" r="14" fill="#3e2723" />
         </svg>
+    }
+}
+
+
+#[component]
+fn RecipeList(
+    // recipes: ReadSignal<Vec<RecipeItem>>,
+) -> impl IntoView {
+    // TODO(filip): handle saving recipes
+    // TODO(filip): handle rating recipes
+
+
+    let (recipes, set_recipes) = create_signal(vec![RecipeItem { id: Uuid::new_v4(), text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ultricies sed dui id mattis. Vivamus viverra consectetur mi, sit amet tincidunt diam facilisis et. Fusce id diam quis ex placerat maximus non ut nisi. Donec bibendum aliquet eros et hendrerit. Etiam scelerisque, ante ac hendrerit sollicitudin, sem orci ullamcorper erat, quis vestibulum leo ex et urna. Phasellus vulputate condimentum nisl ut elementum. Mauris vitae lacinia dolor. Aliquam risus nibh, iaculis id ultricies non, ultrices vitae arcu. Sed consequat maximus ultricies. Vivamus elementum sit amet est nec gravida. Vestibulum dignissim dolor velit, id imperdiet velit sodales et. Nulla sit amet maximus lorem. Integer aliquam, leo quis fermentum hendrerit, erat turpis venenatis lectus, non vestibulum tortor est ut erat. Fusce fermentum felis tincidunt, facilisis leo a, eleifend nisl. Mauris a felis at mi suscipit sagittis sed et tellus. Vestibulum ultricies orci quis odio blandit, at aliquet turpis finibus.
+
+Quisque eget tempus urna. Sed laoreet metus massa. Donec dapibus quam et aliquam lacinia. Etiam purus enim, ultrices in augue a, dignissim condimentum lacus. Morbi pulvinar tempor arcu, sed mollis nisl rhoncus et. Donec fermentum at enim ut efficitur. Proin id pharetra lorem. Quisque vel massa sapien. In metus diam, suscipit sed quam a, accumsan interdum lorem. Praesent efficitur justo eget lacinia varius. Mauris tellus mi, cursus ac vehicula et, sagittis vel tellus. Curabitur imperdiet enim suscipit ullamcorper tristique. Integer ullamcorper erat quis dolor consectetur, at mollis tellus gravida. Sed venenatis leo dui, et tempor massa semper et. Proin posuere mollis massa a porta. Nunc sem dolor, commodo at turpis a, pharetra imperdiet dolor.
+
+Maecenas pharetra diam et nulla accumsan fringilla. Vestibulum ut urna mauris. Vivamus eu sem dui. Duis placerat mi rhoncus ante rhoncus, id lacinia odio egestas. Mauris interdum posuere felis, et aliquet nisl tincidunt non. Curabitur at porttitor quam. Nulla at felis a dolor pharetra feugiat. Donec rhoncus risus neque, et rhoncus dolor imperdiet ac".to_owned() }]);
+
+    view! {
+
+        <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
+            <For
+                each=recipes
+                key=|r| r.id
+                let:child
+            >
+                <Recipe recipe=child />
+            </For>
+        </div>
+    }
+}
+
+#[component]
+fn Recipe(
+    recipe: RecipeItem,
+) -> impl IntoView {
+    view! {
+        <div class="max-w-60 text-white" >
+            {recipe.text}
+        </div>
     }
 }
