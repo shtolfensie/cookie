@@ -3,6 +3,7 @@
   <head>
     <link data-trunk rel="rust" data-wasm-opt="z" />
     <!-- <link data-trunk rel="icon" type="image/ico" href="/public/favicon.ico" /> -->
+    <link data-trunk rel="copy-dir" href="/public/images">
     <link data-trunk rel="css" href="/style/output.css" />
     <style>
       .red {
@@ -10,6 +11,16 @@
       }
     </style>
 
+    <script>
+      // On page load or when changing themes, best to add inline in `head` to avoid FOUC
+      if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
+
+
   </head>
-  <body></body>
+  <body class="dark:bg-slate-900"></body>
 </html>
