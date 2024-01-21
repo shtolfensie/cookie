@@ -109,11 +109,16 @@ fn Pantry() -> impl IntoView {
     provide_context(set_ingredients);
 
     view! {
-        <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
+        <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700 text-white">
             <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
             <div class="flex flex-col gap-1" >
                 <div class="flex flex-col gap-1" >
-                    <IngredientList ingredients=ingredients />
+                    <Show
+                        when=move || { ingredients().len() > 0 }
+                        fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
+                    >
+                        <IngredientList ingredients=ingredients />
+                    </Show>
                 </div>
 
                 <IngredientInput on_add=on_ingredient_add />
