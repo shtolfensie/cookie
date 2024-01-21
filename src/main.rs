@@ -192,7 +192,7 @@ fn IngredientInput(#[prop(into)] on_add: Callback<Ingredient>) -> impl IntoView 
         let input = input_el().expect("<input> to exist");
         let value = input.value();
 
-        on_add(Ingredient {id:0, name: value, quantity: None, certainty: None });
+        on_add(Ingredient {id:0, name: value.trim().to_owned(), quantity: None, certainty: None });
 
         input.set_value("");
     };
