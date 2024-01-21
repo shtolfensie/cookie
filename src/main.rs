@@ -1,6 +1,6 @@
 use leptos::{*, html::Input, leptos_dom::logging::console_log};
 use uuid::Uuid;
-use web_sys::SubmitEvent;
+use web_sys::{SubmitEvent, MouseEvent};
 
 
 
@@ -106,6 +106,8 @@ fn Pantry() -> impl IntoView {
         set_ingredients.update(|data| data.push(Ingredient { id: last_ingredient_id(), name: i.name, quantity: None, certainty: None }));
     };
 
+    provide_context(set_ingredients);
+
     view! {
         <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
             <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
@@ -125,6 +127,17 @@ fn Pantry() -> impl IntoView {
 fn IngredientItem(
     ingredient: Ingredient
 ) -> impl IntoView {
+
+    let ingredient_setter = use_context::<WriteSignal<Vec<Ingredient>>>();
+
+    let handle_delete = move |ev: MouseEvent| {
+        ev.prevent_default();
+
+        if let Some(setter) = ingredient_setter {
+            setter.update(|ings|  ings.retain(|i| i.id != ingredient.id));
+        }
+    };
+
     view! {
         <li class="py-3 sm:py-4 relative group" >
             <div class="flex items-center space-x-3 rtl:space-x-reverse" >
@@ -146,7 +159,7 @@ fn IngredientItem(
             </div>
 
             <div class="absolute top-[calc(50%-13px)] -right-2.5 hidden group-hover:block" >
-                <DeleteButton />
+                <DeleteButton on:click=handle_delete />
             </div>
         </li>
     }
