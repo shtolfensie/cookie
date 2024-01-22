@@ -444,7 +444,7 @@ fn Recipe(
     recipe: RecipeItem,
 ) -> impl IntoView {
     view! {
-        <div class="max-w-60 text-white" >
+        <div class="text-white" >
             {recipe.text}
         </div>
     }
