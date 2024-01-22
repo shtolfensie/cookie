@@ -144,7 +144,7 @@ fn IngredientItem(
     };
 
     view! {
-        <li class="py-3 sm:py-4 relative group" >
+        <li class="py-3 sm:py-4 relative group">
             <div class="flex items-center space-x-3 rtl:space-x-reverse" >
                 <div class="flex-shrink-0" >
                     <img class="w-8 h-8 rounded-full" src="/images/potato.png" alt="Image of a potato"/>
@@ -163,7 +163,7 @@ fn IngredientItem(
                 </span>
             </div>
 
-            <div class="absolute top-[calc(50%-13px)] -right-2.5 hidden group-hover:block" >
+            <div class="transition-opacity absolute top-[calc(50%-13px)] -right-2.5 opacity-0 group-hover:opacity-100 group-focus:opacity-100 has-[:focus]:opacity-100" >
                 <DeleteButton on:click=handle_delete />
             </div>
         </li>
