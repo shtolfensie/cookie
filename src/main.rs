@@ -114,7 +114,7 @@ fn Pantry() -> impl IntoView {
             <div class="flex flex-col gap-1" >
                 <div class="flex flex-col gap-1" >
                     <Show
-                        when=move || { ingredients().len() > 0 }
+                        when=move || { !ingredients().is_empty() }
                         fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
                     >
                         <IngredientList ingredients=ingredients />
