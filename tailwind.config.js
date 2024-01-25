@@ -5,7 +5,11 @@ module.exports = {
     files: ["*.html", "./src/**/*.rs"],
   },
   theme: {
-    extend: {},
+    extend: {
+      aria: {
+        current: 'current="page"',
+      },
+    },
   },
   plugins: [],
 }
