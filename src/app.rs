@@ -1,14 +1,23 @@
-use leptos::{*, ev::{MouseEvent, SubmitEvent}, html::Input};
+use leptos::{*, ev::{MouseEvent, SubmitEvent}, html::Input, logging::log};
 use leptos_meta::*;
 use leptos_router::*;
 
 use uuid::Uuid;
+use std::{env::var, collections::HashMap};
 // use web_sys::{SubmitEvent, MouseEvent};
+
+
+#[derive(Copy, Clone)]
+struct GetRecipesCtx(Action<GenerateRecipes, Result<String, ServerFnError>>);
 
 #[component]
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
+
+    let get_recipes = create_server_action::<GenerateRecipes>();
+
+    provide_context(GetRecipesCtx(get_recipes));
 
     view! {
         // injects a stylesheet into the document <head>
@@ -64,7 +73,7 @@ fn NotFound() -> impl IntoView {
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct Ingredient {
     id: u32,
     name: String,
@@ -134,15 +143,31 @@ fn ProgressBar(
 
 #[component]
 fn Button(
-    children: Children,
+    #[prop(optional)]
+    class: String,
+    loading: MaybeProp<bool>,
+    children: ChildrenFn,
 ) -> impl IntoView {
     view! {
         <button
             type="button"
-            class="text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-200 dark:focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
+            class="text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-200 dark:focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:cursor-not-allowed disabled:hover:bg-gradient-to-r disabled:opacity-50 ".to_owned()+&class
+            disabled={move || loading.get().unwrap_or(false)}
         >
-            {children()}
+        {move || if loading.get().unwrap_or(false) {
+            // view! {"spinner"}.into_view()
+            view! { <SpinnerIcon /> }
+        } else {
+            children().into_view()
+        }}
         </button>
+    }
+}
+
+#[component]
+fn SpinnerIcon() -> impl IntoView {
+    view! {
+        <div class="inline-block align-text-bottom border-[0.15rem] border-solid border-r-transparent rounded-full w-5 h-5 animate-spin "></div>
     }
 }
 
@@ -159,24 +184,39 @@ fn Pantry() -> impl IntoView {
         set_ingredients.update(|data| data.push(Ingredient { id: last_ingredient_id(), name: i.name, quantity: None, certainty: None }));
     };
 
+
+
+    let get_recipes = expect_context::<GetRecipesCtx>().0;
+
+    let handle_ingredients_submit = move |ev: MouseEvent| {
+        ev.prevent_default();
+
+        log!("handle_ingredients_submit running");
+
+        get_recipes.dispatch(GenerateRecipes { ingredients: ingredients() });
+    };
+
     provide_context(set_ingredients);
 
     view! {
-        <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700 text-white">
-            <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
-            <div class="flex flex-col gap-1" >
+        <div class="w-full flex flex-col">
+            <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700 text-white">
+                <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
                 <div class="flex flex-col gap-1" >
-                    <Show
-                        when=move || { ingredients.with(|ings| !ings.is_empty()) }
-                        fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
-                    >
-                        <IngredientList ingredients=ingredients />
-                    </Show>
+                    <div class="flex flex-col gap-1" >
+                        <Show
+                            when=move || { ingredients.with(|ings| !ings.is_empty()) }
+                            fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
+                        >
+                            <IngredientList ingredients=ingredients />
+                        </Show>
+                    </div>
+
+                    <IngredientInput on_add=on_ingredient_add />
                 </div>
 
-                <IngredientInput on_add=on_ingredient_add />
             </div>
-
+            <Button loading={get_recipes.pending().into()} class="mt-2".to_owned() on:click=handle_ingredients_submit >"Mix it together"</Button>
         </div>
     }
 }
@@ -371,7 +411,7 @@ fn Navbar() -> impl IntoView {
                         <li>
                             <A
                                 href="lab"
-                                class="block py-2 px-3 rounded md:p-0 aria-current:text-white aria-current:bg-blue-700 aria-current:md:bg-transparent aria-current:md:text-blue-700 aria-current:md:dark:text-blue-500 text-gray-900 md:p-0 hover:bg-gray-100 md:hover:bg-transparent md:hover:text-blue-700 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent dark:border-gray-700"
+                                class="block py-2 px-3 rounded md:p-0 aria-current:text-white aria-current:bg-blue-700 aria-current:md:bg-transparent aria-current:md:text-blue-700 aria-current:md:dark:text-blue-500 text-gray-900 hover:bg-gray-100 md:hover:bg-transparent md:hover:text-blue-700 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent dark:border-gray-700"
                             >
                                 "Lab"
                             </A>
@@ -502,3 +542,25 @@ fn Recipe(
     }
 }
 
+
+#[server(GenerateRecipes, "/api")]
+pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, ServerFnError> {
+
+
+    std::thread::sleep(std::time::Duration::from_millis(1250));
+
+    log!("{:?}", ingredients);
+
+    let api_key = match var("OPENAI_API_KEY") {
+        Ok(k) => k,
+        Err(_) => return Err(ServerFnError::ServerError("No API key found".to_owned())),
+    };
+
+    let resp = reqwest::get("")
+        .await?
+        .json::<HashMap<String, String>>()
+    .await?;
+    println!("{:#?}", resp);
+
+    return Ok("ahoj".to_owned());
+}
