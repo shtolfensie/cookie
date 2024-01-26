@@ -3,7 +3,7 @@ use leptos_meta::*;
 use leptos_router::*;
 
 use uuid::Uuid;
-use std::{env::var, collections::HashMap};
+use std::{env::var, collections::HashMap, fmt::{format, Display, self}, borrow::Borrow};
 // use web_sys::{SubmitEvent, MouseEvent};
 
 
@@ -79,6 +79,12 @@ struct Ingredient {
     name: String,
     quantity: Option<String>,
     certainty: Option<String>,
+}
+
+impl Display for Ingredient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 // type IngredientsWithId= Vec<(u32, Ingredient)>;
@@ -517,16 +523,20 @@ Quisque eget tempus urna. Sed laoreet metus massa. Donec dapibus quam et aliquam
 
 Maecenas pharetra diam et nulla accumsan fringilla. Vestibulum ut urna mauris. Vivamus eu sem dui. Duis placerat mi rhoncus ante rhoncus, id lacinia odio egestas. Mauris interdum posuere felis, et aliquet nisl tincidunt non. Curabitur at porttitor quam. Nulla at felis a dolor pharetra feugiat. Donec rhoncus risus neque, et rhoncus dolor imperdiet ac".to_owned() }]);
 
+
+    let get_recipes = expect_context::<GetRecipesCtx>().0;
+
     view! {
 
         <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
-            <For
-                each=recipes
-                key=|r| r.id
-                let:child
-            >
-                <Recipe recipe=child />
-            </For>
+            {get_recipes.value()}
+            // <For
+            //     each=recipes
+            //     key=|r| r.id
+            //     let:child
+            // >
+            //     <Recipe recipe=child />
+            // </For>
         </div>
     }
 }
@@ -540,6 +550,66 @@ fn Recipe(
             {recipe.text}
         </div>
     }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GptMessage {
+    role: String,
+    content: Option<String>,
+}
+
+impl GptMessage {
+    fn user(content: &str) -> GptMessage {
+        GptMessage { role: "user".to_owned(), content: Some(content.to_owned()) }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GptChatRequest {
+    model: String,
+    messages: Vec<GptMessage>,
+    temperature: f32
+}
+
+impl GptChatRequest {
+    fn new_recipe_request(ingredients: &Vec<Ingredient>) -> GptChatRequest {
+        let prompt = format!( "what should I eat for dinner? i have {}. I can't eat gluten and milk. can you give me some interesting and simple recipes I could do with the above ingredients? Please answer in the markdown format, don't include anyting else than recipe names and text.",
+            ingredients.iter().map(Ingredient::to_string).collect::<Vec<String>>().join(", "));
+
+        println!("{:?}", prompt);
+
+        GptChatRequest { 
+            model: "gpt-3.5-turbo".to_owned(),
+            messages: vec![GptMessage::user(&prompt)],
+            temperature: 0.5
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GptUsageStats {
+    completion_tokens: i32,
+    prompt_tokens: i32,
+    total_tokens: i32
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GptChatChoice {
+    finish_reason: String,
+    index: i32,
+    message: GptMessage,
+    logprobs: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct GptChatResponse {
+    id: String,
+    choices: Vec<GptChatChoice>,
+    created: i64,
+    model: String,
+    system_fingerprint: Option<String>,
+    object: String,
+    usage: GptUsageStats,
 }
 
 
@@ -556,11 +626,31 @@ pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, Se
         Err(_) => return Err(ServerFnError::ServerError("No API key found".to_owned())),
     };
 
-    let resp = reqwest::get("")
-        .await?
-        .json::<HashMap<String, String>>()
-    .await?;
-    println!("{:#?}", resp);
+    let client = reqwest::Client::new();
 
+    // let req_body = GptRequest {
+    //     model: "gpt-3.5-turbo".to_owned(),
+    //     messages: vec![GptMessage { role: "user".to_owned(), content: "Say this is a test!".to_owned() }],
+    //     temperature: 0.7
+    // };
+
+    let req_body = GptChatRequest::new_recipe_request(&ingredients);
+
+    let resp = client.post("https://api.openai.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&req_body)
+        .send()
+        .await?
+        // .text()
+        .json::<GptChatResponse>()
+    .await?;
+    println!("response: {:#?}", resp);
+
+    let s = resp.choices[0].message.content
+        .borrow()
+        .as_ref()
+        .unwrap().to_owned();
+    return Ok(s.to_owned());
     return Ok("ahoj".to_owned());
 }
