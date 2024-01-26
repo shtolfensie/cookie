@@ -3,8 +3,7 @@ use leptos_meta::*;
 use leptos_router::*;
 
 use uuid::Uuid;
-use std::{env::var, collections::HashMap, fmt::{format, Display, self}, borrow::Borrow};
-// use web_sys::{SubmitEvent, MouseEvent};
+use std::{env::var, fmt::{Display, self}, borrow::Borrow};
 
 
 #[derive(Copy, Clone)]
@@ -20,9 +19,9 @@ pub fn App() -> impl IntoView {
     provide_context(GetRecipesCtx(get_recipes));
 
     view! {
-        // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/cookie-web.css"/>
+        // TODO(filip): look into use_dark_theme -- should do the same thing, nicely packaged
         <Script>"
               // On page load or when changing themes, best to add inline in `head` to avoid FOUC
               if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -49,7 +48,6 @@ pub fn App() -> impl IntoView {
 }
 
 
-/// 404 - Not Found
 #[component]
 fn NotFound() -> impl IntoView {
     // set an HTTP status code 404
@@ -87,21 +85,6 @@ impl Display for Ingredient {
     }
 }
 
-// type IngredientsWithId= Vec<(u32, Ingredient)>;
-
-// struct IngredientList {
-//     list: Vec<(u32, Ingredient)>,
-//     last_id: u32
-// }
-
-// impl IngredientList {
-//     fn push(&mut self, ingredient: Ingredient) {
-//         self.last_id += 1;
-//         self.list.push((self.last_id, ingredient))
-//     }
-// }
-
-
 #[derive(Debug, Clone)]
 struct RecipeItem {
     id: Uuid,
@@ -117,34 +100,17 @@ fn main() {
 fn Lab() -> impl IntoView {
 
     view! {
-        <>
-            // <Navbar/>
-
-            <div class="mt-20 flex flex-col md:flex-row gap-2 lg:gap-8 px-2 md:px-5 lg:px-12" >
-                <div class="w-full md:w-2/5" >
-                    <Pantry/>
-                </div>
-
-                <div class="w-full md:w-3/5" >
-                    // <RecipeList recipes=recipes/>
-                    <RecipeList />
-                </div>
+        <div class="mt-20 flex flex-col md:flex-row gap-2 lg:gap-8 px-2 md:px-5 lg:px-12" >
+            <div class="w-full md:w-2/5" >
+                <Pantry/>
             </div>
-        </>
+
+            <div class="w-full md:w-3/5" >
+                <RecipeList />
+            </div>
+        </div>
     }
 
-}
-
-/// Shows a progress bar
-#[component]
-fn ProgressBar(
-    /// the maximum value of the bar
-    #[prop(default = 100)]
-    max: u16,
-    #[prop(into)]
-    progress: Signal<i32>
-) -> impl IntoView {
-    view! { <progress max=max value=progress></progress> }
 }
 
 #[component]
@@ -189,7 +155,6 @@ fn Pantry() -> impl IntoView {
         set_last_ingredient_id.update(|n| *n += 1);
         set_ingredients.update(|data| data.push(Ingredient { id: last_ingredient_id(), name: i.name, quantity: None, certainty: None }));
     };
-
 
 
     let get_recipes = expect_context::<GetRecipesCtx>().0;
@@ -628,12 +593,6 @@ pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, Se
 
     let client = reqwest::Client::new();
 
-    // let req_body = GptRequest {
-    //     model: "gpt-3.5-turbo".to_owned(),
-    //     messages: vec![GptMessage { role: "user".to_owned(), content: "Say this is a test!".to_owned() }],
-    //     temperature: 0.7
-    // };
-
     let req_body = GptChatRequest::new_recipe_request(&ingredients);
 
     let resp = client.post("https://api.openai.com/v1/chat/completions")
@@ -652,5 +611,4 @@ pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, Se
         .as_ref()
         .unwrap().to_owned();
     return Ok(s.to_owned());
-    return Ok("ahoj".to_owned());
 }
