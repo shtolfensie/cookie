@@ -2,6 +2,7 @@ use leptos::{*, ev::{MouseEvent, SubmitEvent}, html::Input, logging::log};
 use leptos_meta::*;
 use leptos_router::*;
 
+use leptos_use::storage::{use_local_storage, JsonCodec};
 use uuid::Uuid;
 use std::{env::var, fmt::{Display, self}, borrow::Borrow};
 
@@ -71,9 +72,9 @@ fn NotFound() -> impl IntoView {
 
 
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 struct Ingredient {
-    id: u32,
+    id: Uuid,
     name: String,
     quantity: Option<String>,
     certainty: Option<String>,
@@ -146,14 +147,12 @@ fn SpinnerIcon() -> impl IntoView {
 
 #[component]
 fn Pantry() -> impl IntoView {
+    let (ingredients, set_ingredients, _) = use_local_storage::<Vec<Ingredient>, JsonCodec>("ingredients");
 
-    let (ingredients, set_ingredients) = create_signal(vec![ Ingredient { id: 0, name: "Potatoes".to_owned(), quantity: None, certainty: None } ]);
-    let (last_ingredient_id, set_last_ingredient_id) = create_signal(0);
-
+    log!("ingredients: {:?}", ingredients.get_untracked());
 
     let on_ingredient_add = move |i: Ingredient| {
-        set_last_ingredient_id.update(|n| *n += 1);
-        set_ingredients.update(|data| data.push(Ingredient { id: last_ingredient_id(), name: i.name, quantity: None, certainty: None }));
+        set_ingredients.update(|data| data.push(i));
     };
 
 
@@ -175,12 +174,14 @@ fn Pantry() -> impl IntoView {
                 <h5 class="text-xl font-medium text-gray-900 dark:text-white">"Pantry"</h5>
                 <div class="flex flex-col gap-1" >
                     <div class="flex flex-col gap-1" >
-                        <Show
-                            when=move || { ingredients.with(|ings| !ings.is_empty()) }
-                            fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
-                        >
-                            <IngredientList ingredients=ingredients />
-                        </Show>
+                        <ClientOnly>
+                            <Show
+                                when=move || { ingredients.with(|ings| !ings.is_empty()) }
+                                fallback=|| view! { <p class="my-5 text-gray-300">"There seems to be nothing here..."</p> }
+                            >
+                                <IngredientList ingredients=ingredients />
+                            </Show>
+                        </ClientOnly>
                     </div>
 
                     <IngredientInput on_add=on_ingredient_add />
@@ -235,7 +236,7 @@ fn IngredientItem(
 }
 
 #[component]
-fn IngredientList(ingredients: ReadSignal<Vec<Ingredient>>) -> impl IntoView {
+fn IngredientList(ingredients: Signal<Vec<Ingredient>>) -> impl IntoView {
     view! {
 
         <ul role="list" class="w-full divide-y divide-gray-200 dark:divide-gray-700" >
@@ -261,7 +262,7 @@ fn IngredientInput(#[prop(into)] on_add: Callback<Ingredient>) -> impl IntoView 
         let input = input_el().expect("<input> to exist");
         let value = input.value();
 
-        on_add(Ingredient {id:0, name: value.trim().to_owned(), quantity: None, certainty: None });
+        on_add(Ingredient {id: Uuid::new_v4(), name: value.trim().to_owned(), quantity: None, certainty: None });
 
         input.set_value("");
     };
@@ -514,6 +515,22 @@ fn Recipe(
         <div class="text-white" >
             {recipe.text}
         </div>
+    }
+}
+
+#[component]
+fn ClientOnly(
+    // TODO(filip): optional skeleton comp to display instead of spinner
+    children: ChildrenFn,
+) -> impl IntoView {
+    let (is_client, set_is_client) = create_signal(false);
+    create_effect(move |_| {
+        set_is_client(true);
+    });
+
+    move || match is_client() {
+        true => children().into_view(),
+        false => view! { <div class="flex flex-row justify-center items-center align-middle p-2"> <SpinnerIcon /> </div>}.into_view(),
     }
 }
 
