@@ -6,9 +6,10 @@ use leptos_use::storage::{use_local_storage, JsonCodec};
 use uuid::Uuid;
 use std::{env::var, fmt::{Display, self}, borrow::Borrow};
 
+use crate::recipe::{self, Recipe};
 
 #[derive(Copy, Clone)]
-struct GetRecipesCtx(Action<GenerateRecipes, Result<String, ServerFnError>>);
+struct GetRecipesCtx(Action<GenerateRecipes, Result<Vec<Recipe>, ServerFnError>>);
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -492,10 +493,32 @@ Maecenas pharetra diam et nulla accumsan fringilla. Vestibulum ut urna mauris. V
 
     let get_recipes = expect_context::<GetRecipesCtx>().0;
 
+    let recipes = get_recipes.value();
+
+    let recipe_view =  move || {
+        match recipes() {
+            Some(rrs) => rrs
+                .ok()
+                .map(|rs| rs
+                    .iter()
+                    .map(|r| view! {
+                        <div>{r.name.clone().into_view()}</div>
+                        <ul>{
+                            r.instructions
+                                .iter()
+                                .map(|i| view! {<li>{ i.clone().into_view() }</li>})
+                                .collect_view()
+                        }</ul>
+                    })
+                    .collect_view()),
+            None => None,
+        }
+    };
+
     view! {
 
-        <div class="w-full p-2 bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
-            {get_recipes.value()}
+        <div class="w-full p-2 text-white bg-white border border-gray-200 rounded-lg shadow md:p-4 dark:bg-gray-800 dark:border-gray-700">
+            {recipe_view}
             // <For
             //     each=recipes
             //     key=|r| r.id
@@ -596,10 +619,7 @@ struct GptChatResponse {
 
 
 #[server(GenerateRecipes, "/api")]
-pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, ServerFnError> {
-
-
-    std::thread::sleep(std::time::Duration::from_millis(1250));
+pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<Vec<Recipe>, ServerFnError> {
 
     log!("{:?}", ingredients);
 
@@ -627,5 +647,10 @@ pub async fn generate_recipes(ingredients: Vec<Ingredient>) -> Result<String, Se
         .borrow()
         .as_ref()
         .unwrap().to_owned();
-    return Ok(s.to_owned());
+
+
+    match recipe::parse(&s) {
+        Ok(r) => Ok(r),
+        Err(_) => Err(ServerFnError::ServerError("Could not parse recipes".to_owned())),
+    }
 }
